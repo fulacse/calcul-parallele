@@ -7,6 +7,7 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -66,6 +67,12 @@ public class MainDemandeur {
         if(hauteur>nbLigne*tailleParti && largeur>nbCilone*tailleParti){
             Image image = scenes.get(0).compute(nbCilone*tailleParti, nbLigne*tailleParti, largeur-nbCilone*tailleParti, hauteur-nbLigne*tailleParti);
             disp.setImage(image, nbCilone*tailleParti, nbLigne*tailleParti);
+        }
+
+        /* arrêter les services */
+        //System.out.println(fabriquateurScenes.size());
+        for (int i=0;i< fabriquateurScenes.size();i++){
+            fabriquateurScenes.get(i).stop();
         }
     }
 }
