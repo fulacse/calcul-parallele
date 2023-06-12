@@ -11,8 +11,10 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.Thread.sleep;
+
 public class MainDemandeur {
-    public static void main(String[] args) throws RemoteException, NotBoundException {
+    public static void main(String[] args) throws RemoteException, NotBoundException, InterruptedException {
         /* hauteur et largeur par défaut de l'image à construire */
         int hauteur=200;
         int largeur=200;
@@ -48,6 +50,7 @@ public class MainDemandeur {
             for (int j=0;j<nbLigne;j++){
                 Image image = scenes.get((i*nbLigne+j) % scenes.size()).compute(i*tailleParti, j*tailleParti, tailleParti, tailleParti);
                 disp.setImage(image, i*tailleParti, j*tailleParti);
+                sleep(10);
             }
         }
 

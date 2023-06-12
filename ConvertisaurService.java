@@ -3,10 +3,12 @@ import raytracer.ServiceScene;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.concurrent.Semaphore;
 
 public class ConvertisaurService implements FabriquateurScene{
 
     private Scene scene;
+    private Semaphore semaphore = new Semaphore(1);
 
     @Override
     public ServiceScene fabriquer(int largeur, int hauteur) throws RemoteException {
@@ -15,12 +17,19 @@ public class ConvertisaurService implements FabriquateurScene{
 
     @Override
     public ServiceScene convertirService(Scene scene) throws RemoteException {
-        this.scene = scene;
-        return (ServiceScene) UnicastRemoteObject.exportObject(this.scene,0);
+        try {
+            semaphore.acquire();
+            this.scene = scene;
+            return (ServiceScene) UnicastRemoteObject.exportObject(this.scene, 0);
+        } catch (InterruptedException e) {
+            throw new RemoteException("Erreur lors de l'acquisition du verrou.", e);
+        }
     }
 
     @Override
     public void stop() throws RemoteException {
-        UnicastRemoteObject.unexportObject(this.scene,true);
+        UnicastRemoteObject.unexportObject(this.scene, true);
+        this.scene = null;
+        semaphore.release();
     }
 }
