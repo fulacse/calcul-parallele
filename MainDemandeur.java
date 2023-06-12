@@ -1,11 +1,14 @@
 import raytracer.Disp;
 import raytracer.Image;
 import raytracer.Scene;
+import raytracer.ServiceScene;
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainDemandeur {
     public static void main(String[] args) throws RemoteException, NotBoundException {
@@ -30,6 +33,10 @@ public class MainDemandeur {
         Registry reg = LocateRegistry.getRegistry(serveur, port);
         ServiceListFabriquateurScene fabriquateurScenes=(ServiceListFabriquateurScene) reg.lookup("FabriquateurScenes");
         Scene scene=new Scene("simple.txt",largeur,hauteur);
+        List<ServiceScene> scenes=new ArrayList<>();
+        for (int i=0;i< fabriquateurScenes.size();i++){
+            scenes.add(fabriquateurScenes.get(i).convertirService(scene));
+        }
 
         /*distribuer les taches de calcul*/
         int tailleParti=10;
@@ -38,7 +45,7 @@ public class MainDemandeur {
         Disp disp = new Disp("Raytracer", largeur, hauteur);
         for (int i=0;i<nbCilone;i++){
             for (int j=0;j<nbLigne;j++){
-                Image image = fabriquateurScenes.get((i*nbLigne+j) % fabriquateurScenes.size()).convertirService(scene).compute(i*tailleParti, j*tailleParti, tailleParti, tailleParti);
+                Image image = scenes.get((i*nbLigne+j) % scenes.size()).compute(i*tailleParti, j*tailleParti, tailleParti, tailleParti);
                 disp.setImage(image, i*tailleParti, j*tailleParti);
             }
         }
@@ -46,18 +53,18 @@ public class MainDemandeur {
         /*si la taille de l'image n'est pas un multiple de la taille des parties, completer l'image*/
         if(hauteur>nbLigne*tailleParti){
             for (int i=0;i<nbCilone;i++){
-                Image image = fabriquateurScenes.get(i % fabriquateurScenes.size()).convertirService(scene).compute(i*tailleParti, nbLigne*tailleParti, tailleParti, hauteur-nbLigne*tailleParti);
+                Image image = scenes.get(i % scenes.size()).compute(i*tailleParti, nbLigne*tailleParti, tailleParti, hauteur-nbLigne*tailleParti);
                 disp.setImage(image, i*tailleParti, nbLigne*tailleParti);
             }
         }
         if(largeur>nbCilone*tailleParti){
             for (int j=0;j<nbLigne;j++){
-                Image image = fabriquateurScenes.get(j % fabriquateurScenes.size()).convertirService(scene).compute(nbCilone*tailleParti, j*tailleParti, largeur-nbCilone*tailleParti, tailleParti);
+                Image image = scenes.get(j % fabriquateurScenes.size()).compute(nbCilone*tailleParti, j*tailleParti, largeur-nbCilone*tailleParti, tailleParti);
                 disp.setImage(image, nbCilone*tailleParti, j*tailleParti);
             }
         }
         if(hauteur>nbLigne*tailleParti && largeur>nbCilone*tailleParti){
-            Image image = fabriquateurScenes.get(0).convertirService(scene).compute(nbCilone*tailleParti, nbLigne*tailleParti, largeur-nbCilone*tailleParti, hauteur-nbLigne*tailleParti);
+            Image image = scenes.get(0).compute(nbCilone*tailleParti, nbLigne*tailleParti, largeur-nbCilone*tailleParti, hauteur-nbLigne*tailleParti);
             disp.setImage(image, nbCilone*tailleParti, nbLigne*tailleParti);
         }
     }
