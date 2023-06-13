@@ -1,14 +1,13 @@
-import raytracer.Disp;
-import raytracer.Image;
-import raytracer.Scene;
-import raytracer.ServiceScene;
+import raytracer.*;
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
+import java.rmi.ServerException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.List;
 
 import static java.lang.Thread.sleep;
@@ -34,48 +33,15 @@ public class MainDemandeur {
 
         /* récupération du service FabriquateurScene */
         Registry reg = LocateRegistry.getRegistry(serveur, port);
-        ServiceListFabriquateurScene fabriquateurScenes=(ServiceListFabriquateurScene) reg.lookup("FabriquateurScenes");
+        ServiceCentreCalcule centreCalcule=(ServiceCentreCalcule) reg.lookup("CentreCalcule");
         Scene scene=new Scene("simple.txt",largeur,hauteur);
-        List<ServiceScene> scenes=new ArrayList<>();
-        for (int i=0;i< fabriquateurScenes.size();i++){
-            scenes.add(fabriquateurScenes.get(i).convertirService(scene));
-        }
-
-        /*distribuer les taches de calcul*/
-        int tailleParti=10;
-        int nbLigne=hauteur/tailleParti;
-        int nbCilone=largeur/tailleParti;
-        Disp disp = new Disp("Raytracer", largeur, hauteur);
-        for (int i=0;i<nbCilone;i++){
-            for (int j=0;j<nbLigne;j++){
-                Image image = scenes.get((i*nbLigne+j) % scenes.size()).compute(i*tailleParti, j*tailleParti, tailleParti, tailleParti);
-                disp.setImage(image, i*tailleParti, j*tailleParti);
-                sleep(10);
-            }
-        }
-
-        /*si la taille de l'image n'est pas un multiple de la taille des parties, completer l'image*/
-        if(hauteur>nbLigne*tailleParti){
-            for (int i=0;i<nbCilone;i++){
-                Image image = scenes.get(i % scenes.size()).compute(i*tailleParti, nbLigne*tailleParti, tailleParti, hauteur-nbLigne*tailleParti);
-                disp.setImage(image, i*tailleParti, nbLigne*tailleParti);
-            }
-        }
-        if(largeur>nbCilone*tailleParti){
-            for (int j=0;j<nbLigne;j++){
-                Image image = scenes.get(j % fabriquateurScenes.size()).compute(nbCilone*tailleParti, j*tailleParti, largeur-nbCilone*tailleParti, tailleParti);
-                disp.setImage(image, nbCilone*tailleParti, j*tailleParti);
-            }
-        }
-        if(hauteur>nbLigne*tailleParti && largeur>nbCilone*tailleParti){
-            Image image = scenes.get(0).compute(nbCilone*tailleParti, nbLigne*tailleParti, largeur-nbCilone*tailleParti, hauteur-nbLigne*tailleParti);
-            disp.setImage(image, nbCilone*tailleParti, nbLigne*tailleParti);
-        }
-
-        /* arrêter les services */
-        //System.out.println(fabriquateurScenes.size());
-        for (int i=0;i< fabriquateurScenes.size();i++){
-            fabriquateurScenes.get(i).stop();
+        Disp disp=new Disp("Raytracer", largeur, hauteur);
+        try {
+            centreCalcule.calculer((ServiceDisp) UnicastRemoteObject.exportObject(disp,0), scene);
+        }catch (ArithmeticException arithmeticException){
+            UnicastRemoteObject.unexportObject(disp,true);
+            disp.close();
+            System.out.println("Pas de calculeur disponible");
         }
     }
 }

@@ -7,7 +7,6 @@ public class MainServeurCentral {
     public static void main(String[] args) throws RemoteException {
         /*initialisation du service central*/
         Registry reg = LocateRegistry.createRegistry(1099);
-        ListFabriquateurScene fabriquateurScenes=new ListFabriquateurScene();
-        reg.rebind("FabriquateurScenes", UnicastRemoteObject.exportObject(fabriquateurScenes,0));
+        reg.rebind("CentreCalcule", UnicastRemoteObject.exportObject(new CentreCalcule(),0));
     }
 }

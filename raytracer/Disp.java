@@ -2,13 +2,18 @@ package raytracer;
 import javax.swing.*;        
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.rmi.RemoteException;
 
 
-public class Disp {
+public class Disp implements ServiceDisp{
     private JFrame frame; 
     private ImageRenderComponent renderer;
+    private int width, height;
 
     public Disp(String title, int width, int height) {
+
+            this.width = width;
+            this.height = height;
 	
 	// create the image on which we draw
 	BufferedImage image = new BufferedImage(width, height, 
@@ -32,6 +37,10 @@ public class Disp {
         frame.setVisible(true);
     }
 
+    public void close(){
+        frame.dispose();
+    }
+
 
     public void setImagePixel(int x, int y, Color c){
 	renderer.setImagePixel(x, y,  c);
@@ -41,7 +50,7 @@ public class Disp {
 	frame.repaint();
     }
     
-    public void setImage(Image i, int x0, int y0){
+    public void setImage(Image i, int x0, int y0) throws java.rmi.RemoteException{
 	for(int y=0; y<i.getHeight() ; y++)
 	    for(int x=0; x<i.getWidth() ; x++)
 		renderer.setImagePixel(x0+x, y0+y, i.getPixel(x,y));
@@ -49,7 +58,17 @@ public class Disp {
 	frame.repaint();
     }
 
-    
+    @Override
+    public int getHauteur() throws RemoteException {
+        return this.height;
+    }
+
+    @Override
+    public int getLargeur() throws RemoteException {
+        return this.width;
+    }
+
+
 }
 
 

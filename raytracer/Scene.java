@@ -12,7 +12,7 @@ public class Scene implements ServiceScene{
     private static float EPSILON = 1E-3f;
     private HashSet<Primitive> objets;
     private HashSet<Source> sources;
-    private int width, height,i,id;
+    private int width, height,i;
 
     private RayTracer tracer;
     
@@ -31,20 +31,19 @@ public class Scene implements ServiceScene{
 	
 	tracer = new RayTracer(w, h);
 	this.i=0;
-	this.id=-1;
 
     }
 
-	public int getId() {
-		return id;
+	public int getWidth(){
+		return width;
 	}
 
-	public void setId(int id) {
-		this.id = id;
+	public int getHeight(){
+		return height;
 	}
 
 	public Image compute(int x0, int y0, int w, int h) throws java.rmi.RemoteException{
-		System.out.println("générer d'un partie "+this.i+++" de l'image");
+		System.out.println("* générer d'un partie "+this.i+++" de l'image");
 		return tracer.compute(this, x0, y0, w, h, 10, 1);
     }
 	

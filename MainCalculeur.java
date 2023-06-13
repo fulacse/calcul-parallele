@@ -17,10 +17,10 @@ public class MainCalculeur {
 
         /* récupération du service FabriquateurScene */
         Registry reg = LocateRegistry.getRegistry(serveur, port);
-        ServiceListFabriquateurScene fabriquateurScenes=(ServiceListFabriquateurScene) reg.lookup("FabriquateurScenes");
+        ServiceCentreCalcule centreCalcule=(ServiceCentreCalcule) reg.lookup("CentreCalcule");
 
         /*ajouter un fabriquateur de scene par defaut*/
-        fabriquateurScenes.add((FabriquateurScene) UnicastRemoteObject.exportObject(new ConvertisaurService(),0));
+        centreCalcule.addCalculeur((FabriquateurScene) UnicastRemoteObject.exportObject(new ConvertisaurService(),0));
 
     }
 }
