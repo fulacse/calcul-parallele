@@ -97,6 +97,18 @@ public class CentreCalcule implements ServiceCentreCalcule{
                 }
             }
         }
+
+        /* Arreter les services de calcul*/
+        fabriquateurSceneIterator = fabriquateurScenes.iterator();
+        while (fabriquateurSceneIterator.hasNext()){
+            FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
+            try {
+                fabriquateurScene.stop();
+            }catch (ConnectException connectException){
+                fabriquateurSceneIterator.remove();
+                System.out.println("Enlever un calculeur: "+ fabriquateurScene);
+            }
+        }
     }
 
     /*private void drow(List<ServiceScene> scenes,int nbLigne,int nbCilone,ServiceDisp disp,int i,int j) throws InterruptedException, RemoteException {
