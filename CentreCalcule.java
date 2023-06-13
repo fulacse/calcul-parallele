@@ -81,7 +81,6 @@ public class CentreCalcule implements ServiceCentreCalcule {
         int nbLigne = scene.getHeight() / tailleParti;
         int nbColone = scene.getWidth() / tailleParti;
         List<int[]> tachesOmettre = new ArrayList<>();
-        threads=new ArrayList<>();
         for (int i = 0; i < nbColone; i++) {
             for (AtomicInteger j = new AtomicInteger(); j.get() < nbLigne; j.getAndIncrement()) {
                 ServiceScene serviceScene = scenes.get((i + j.get()) % scenes.size());
@@ -97,15 +96,13 @@ public class CentreCalcule implements ServiceCentreCalcule {
                             scenes.remove(serviceScene);
                             System.out.println("Enlever un service de calcul: " + serviceScene);
                         }
-                        tachesOmettre.add(new int[]{finalI, finalJ});
+                        synchronized (tachesOmettre) {
+                            tachesOmettre.add(new int[]{finalI, finalJ});
+                        }
                     }
                 });
                 thread.start();
-                threads.add(thread);
             }
-        }
-        for (Thread thread : threads) {
-            thread.join();
         }
         while (tachesOmettre.size() > 0) {
             int[] tache = tachesOmettre.get(0);
@@ -123,7 +120,9 @@ public class CentreCalcule implements ServiceCentreCalcule {
                         scenes.remove(serviceScene);
                         System.out.println("Enlever un service de calcul: " + serviceScene);
                     }
-                    tachesOmettre.add(new int[]{finalI, finalJ});
+                    synchronized (tachesOmettre) {
+                        tachesOmettre.add(new int[]{finalI, finalJ});
+                    }
                 }
             });
             thread.start();
@@ -144,7 +143,9 @@ public class CentreCalcule implements ServiceCentreCalcule {
                             scenes.remove(sceneI);
                             System.out.println("Enlever un service de calcul: " + sceneI);
                         }
-                        finalTachesOmettre.add(new int[]{finalI, nbLigne});
+                        synchronized (finalTachesOmettre) {
+                            finalTachesOmettre.add(new int[]{finalI, nbLigne});
+                        }
                     }
                 });
                 thread.start();
@@ -164,7 +165,9 @@ public class CentreCalcule implements ServiceCentreCalcule {
                         scenes.remove(sceneI);
                         System.out.println("Enlever un service de calcul: " + sceneI);
                     }
-                    finalTachesOmettre.add(new int[]{tache[0], tache[1]});
+                    synchronized (finalTachesOmettre) {
+                        finalTachesOmettre.add(new int[]{tache[0], tache[1]});
+                    }
                 }
             });
             thread.start();
@@ -182,7 +185,9 @@ public class CentreCalcule implements ServiceCentreCalcule {
                             scenes.remove(sceneI);
                             System.out.println("Enlever un service de calcul: " + sceneI);
                         }
-                        tachesOmettre.add(new int[]{nbColone, finalJ});
+                        synchronized (tachesOmettre) {
+                            tachesOmettre.add(new int[]{nbColone, finalJ});
+                        }
                     }
                 });
                 thread.start();
@@ -202,7 +207,9 @@ public class CentreCalcule implements ServiceCentreCalcule {
                         scenes.remove(sceneI);
                         System.out.println("Enlever un service de calcul: " + sceneI);
                     }
-                    finalTachesOmettre.add(new int[]{tache[0], tache[1]});
+                    synchronized (finalTachesOmettre) {
+                        finalTachesOmettre.add(new int[]{tache[0], tache[1]});
+                    }
                 }
             });
             thread.start();
