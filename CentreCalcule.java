@@ -11,9 +11,11 @@ import static java.lang.Thread.sleep;
 
 public class CentreCalcule implements ServiceCentreCalcule{
     List<FabriquateurScene> fabriquateurScenes;
+    List<ServiceScene> scenes;
     int tailleParti=10;
 
     public CentreCalcule(){
+        scenes = new ArrayList<>();
         fabriquateurScenes = new ArrayList<>();
     }
 
@@ -24,8 +26,22 @@ public class CentreCalcule implements ServiceCentreCalcule{
     }
 
     public void calculer(ServiceDisp disp, Scene scene) throws RemoteException, InterruptedException {
-        List<ServiceScene> scenes = new ArrayList<>();
+
+        /* Arreter les services de calcul*/
         Iterator<FabriquateurScene> fabriquateurSceneIterator = fabriquateurScenes.iterator();
+        while (fabriquateurSceneIterator.hasNext()){
+            FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
+            try {
+                fabriquateurScene.stop();
+            }catch (ConnectException connectException){
+                fabriquateurSceneIterator.remove();
+                System.out.println("Enlever un calculeur: "+ fabriquateurScene);
+            }
+        }
+
+        /* Convertir les services de calcul*/
+        scenes = new ArrayList<>();
+        fabriquateurSceneIterator = fabriquateurScenes.iterator();
         while (fabriquateurSceneIterator.hasNext()){
             FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
             try {
@@ -95,18 +111,6 @@ public class CentreCalcule implements ServiceCentreCalcule{
                     scenes.remove(scenes.get(0));
                     System.out.println("Enlever un service de calcul: " + scene);
                 }
-            }
-        }
-
-        /* Arreter les services de calcul*/
-        fabriquateurSceneIterator = fabriquateurScenes.iterator();
-        while (fabriquateurSceneIterator.hasNext()){
-            FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
-            try {
-                fabriquateurScene.stop();
-            }catch (ConnectException connectException){
-                fabriquateurSceneIterator.remove();
-                System.out.println("Enlever un calculeur: "+ fabriquateurScene);
             }
         }
     }

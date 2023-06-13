@@ -18,6 +18,7 @@ public class ConvertisaurService implements FabriquateurScene{
 
     @Override
     public void stop() throws RemoteException {
+        if(this.scene==null)return;
         UnicastRemoteObject.unexportObject(this.scene, true);
         System.out.println("Arrêter un service de calcul: "+this.scene.toString());
         this.scene = null;
