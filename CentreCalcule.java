@@ -81,20 +81,23 @@ public class CentreCalcule implements ServiceCentreCalcule {
         int nbLigne = scene.getHeight() / tailleParti;
         int nbColone = scene.getWidth() / tailleParti;
         List<int[]> tachesOmettre = new ArrayList<>();
+        threads = new ArrayList<>();
         for (int i = 0; i < nbColone; i++) {
-            for (AtomicInteger j = new AtomicInteger(); j.get() < nbLigne; j.getAndIncrement()) {
-                ServiceScene serviceScene = scenes.get((i + j.get()) % scenes.size());
+            for (int j = 0; j < nbLigne; j++) {
+                ServiceScene serviceScene = scenes.get((i + j) % scenes.size());
                 int finalI = i;
-                int finalJ = j.get();
+                int finalJ = j;
                 Thread thread = new Thread(() -> {
                     Image image;
                     try {
                         image = serviceScene.compute(finalI * tailleParti, finalJ * tailleParti, tailleParti, tailleParti);
                         disp.setImage(image, finalI * tailleParti, finalJ * tailleParti);
                     } catch (RemoteException e) {
-                        if (scenes.contains(serviceScene)) {
-                            scenes.remove(serviceScene);
-                            System.out.println("Enlever un service de calcul: " + serviceScene);
+                        synchronized (scenes) {
+                            if (scenes.contains(serviceScene)) {
+                                scenes.remove(serviceScene);
+                                System.out.println("Enlever un service de calcul: " + serviceScene);
+                            }
                         }
                         synchronized (tachesOmettre) {
                             tachesOmettre.add(new int[]{finalI, finalJ});
@@ -102,7 +105,11 @@ public class CentreCalcule implements ServiceCentreCalcule {
                     }
                 });
                 thread.start();
+                threads.add(thread);
             }
+        }
+        for (Thread thread : threads) {
+            thread.join();
         }
         while (tachesOmettre.size() > 0) {
             int[] tache = tachesOmettre.get(0);
@@ -110,25 +117,18 @@ public class CentreCalcule implements ServiceCentreCalcule {
             ServiceScene serviceScene = scenes.get((tache[0] + tache[1]) % scenes.size());
             int finalI = tache[0];
             int finalJ = tache[1];
-            Thread thread = new Thread(() -> {
-                Image image;
-                try {
-                    image = serviceScene.compute(finalI * tailleParti, finalJ * tailleParti, tailleParti, tailleParti);
-                    disp.setImage(image, finalI * tailleParti, finalJ * tailleParti);
-                } catch (RemoteException e) {
-                    if (scenes.contains(serviceScene)) {
-                        scenes.remove(serviceScene);
-                        System.out.println("Enlever un service de calcul: " + serviceScene);
-                    }
-                    synchronized (tachesOmettre) {
-                        tachesOmettre.add(new int[]{finalI, finalJ});
-                    }
-                }
-            });
-            thread.start();
+            try {
+                Image image = serviceScene.compute(finalI * tailleParti, finalJ * tailleParti, tailleParti, tailleParti);
+                disp.setImage(image, finalI * tailleParti, finalJ * tailleParti);
+            } catch (RemoteException e) {
+                scenes.remove(serviceScene);
+                System.out.println("Enlever un service de calcul: " + serviceScene);
+                tachesOmettre.add(new int[]{finalI, finalJ});
+            }
         }
 
         /*si la taille de l'image n'est pas un multiple de la taille des parties, completer l'image*/
+        threads = new ArrayList<>();
         if(scene.getHeight()>nbLigne*tailleParti){
             for (int i=0;i<nbColone;i++){
                 ServiceScene sceneI = scenes.get(i % scenes.size());
@@ -139,9 +139,11 @@ public class CentreCalcule implements ServiceCentreCalcule {
                         Image image = sceneI.compute(finalI *tailleParti, nbLigne*tailleParti, tailleParti, scene.getHeight()-nbLigne*tailleParti);
                         disp.setImage(image, finalI *tailleParti, nbLigne*tailleParti);
                     }catch (RemoteException e) {
-                        if (scenes.contains(sceneI)) {
-                            scenes.remove(sceneI);
-                            System.out.println("Enlever un service de calcul: " + sceneI);
+                        synchronized (scenes) {
+                            if (scenes.contains(sceneI)) {
+                                scenes.remove(sceneI);
+                                System.out.println("Enlever un service de calcul: " + sceneI);
+                            }
                         }
                         synchronized (finalTachesOmettre) {
                             finalTachesOmettre.add(new int[]{finalI, nbLigne});
@@ -149,41 +151,40 @@ public class CentreCalcule implements ServiceCentreCalcule {
                     }
                 });
                 thread.start();
+                threads.add(thread);
             }
+        }
+        for (Thread thread : threads) {
+            thread.join();
         }
         while (tachesOmettre.size()>0){
             int[] tache = tachesOmettre.get(0);
             tachesOmettre.remove(0);
             ServiceScene sceneI = scenes.get(tache[0] % scenes.size());
-            List<int[]> finalTachesOmettre = tachesOmettre;
-            Thread thread=new Thread(()->{
-                try {
-                    Image image = sceneI.compute(tache[0] *tailleParti, tache[1] *tailleParti, tailleParti, scene.getHeight()-nbLigne*tailleParti);
-                    disp.setImage(image, tache[0] *tailleParti, tache[1] *tailleParti);
-                }catch (RemoteException e) {
-                    if (scenes.contains(sceneI)) {
-                        scenes.remove(sceneI);
-                        System.out.println("Enlever un service de calcul: " + sceneI);
-                    }
-                    synchronized (finalTachesOmettre) {
-                        finalTachesOmettre.add(new int[]{tache[0], tache[1]});
-                    }
-                }
-            });
-            thread.start();
+            try {
+                Image image = sceneI.compute(tache[0] *tailleParti, tache[1] *tailleParti, tailleParti, scene.getHeight()-nbLigne*tailleParti);
+                disp.setImage(image, tache[0] *tailleParti, tache[1] *tailleParti);
+            }catch (RemoteException e) {
+                scenes.remove(sceneI);
+                System.out.println("Enlever un service de calcul: " + sceneI);
+                tachesOmettre.add(new int[]{tache[0], tache[1]});
+            }
         }
+        threads = new ArrayList<>();
         if(scene.getWidth()>nbColone*tailleParti){
-            for (AtomicInteger j = new AtomicInteger(); j.get() <nbLigne; j.getAndIncrement()){
-                int finalJ = j.get();
+            for (int j = 0; j <nbLigne; j++){
+                int finalJ = j;
                 ServiceScene sceneI = scenes.get(finalJ % scenes.size());
                 Thread thread=new Thread(()->{
                     try {
                         Image image = sceneI.compute(nbColone*tailleParti, finalJ *tailleParti, scene.getWidth()-nbColone*tailleParti, tailleParti);
                         disp.setImage(image, nbColone*tailleParti, finalJ *tailleParti);
                     }catch (RemoteException e) {
-                        if (scenes.contains(sceneI)) {
-                            scenes.remove(sceneI);
-                            System.out.println("Enlever un service de calcul: " + sceneI);
+                        synchronized (scenes) {
+                            if (scenes.contains(sceneI)) {
+                                scenes.remove(sceneI);
+                                System.out.println("Enlever un service de calcul: " + sceneI);
+                            }
                         }
                         synchronized (tachesOmettre) {
                             tachesOmettre.add(new int[]{nbColone, finalJ});
@@ -191,28 +192,24 @@ public class CentreCalcule implements ServiceCentreCalcule {
                     }
                 });
                 thread.start();
+                threads.add(thread);
             }
+        }
+        for (Thread thread : threads) {
+            thread.join();
         }
         while (tachesOmettre.size()>0){
             int[] tache = tachesOmettre.get(0);
             tachesOmettre.remove(0);
             ServiceScene sceneI = scenes.get(tache[0] % scenes.size());
-            List<int[]> finalTachesOmettre = tachesOmettre;
-            Thread thread=new Thread(()->{
-                try {
-                    Image image = sceneI.compute(tache[0] *tailleParti, tache[1] *tailleParti, scene.getWidth()-nbColone*tailleParti, tailleParti);
-                    disp.setImage(image, tache[0] *tailleParti, tache[1] *tailleParti);
-                }catch (RemoteException e) {
-                    if (scenes.contains(sceneI)) {
-                        scenes.remove(sceneI);
-                        System.out.println("Enlever un service de calcul: " + sceneI);
-                    }
-                    synchronized (finalTachesOmettre) {
-                        finalTachesOmettre.add(new int[]{tache[0], tache[1]});
-                    }
-                }
-            });
-            thread.start();
+            try {
+                Image image = sceneI.compute(tache[0] *tailleParti, tache[1] *tailleParti, scene.getWidth()-nbColone*tailleParti, tailleParti);
+                disp.setImage(image, tache[0] *tailleParti, tache[1] *tailleParti);
+            }catch (RemoteException e) {
+                scenes.remove(sceneI);
+                System.out.println("Enlever un service de calcul: " + sceneI);
+                tachesOmettre.add(new int[]{tache[0], tache[1]});
+            }
         }
         if(scene.getHeight()>nbLigne*tailleParti && scene.getWidth()>nbColone*tailleParti){
             boolean complete = false;
