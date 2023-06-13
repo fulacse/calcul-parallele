@@ -2,103 +2,210 @@ import raytracer.*;
 
 import java.rmi.ConnectException;
 import java.rmi.RemoteException;
-import java.rmi.ServerException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.Thread.sleep;
 
-public class CentreCalcule implements ServiceCentreCalcule{
+public class CentreCalcule implements ServiceCentreCalcule {
     List<FabriquateurScene> fabriquateurScenes;
     List<ServiceScene> scenes;
-    int tailleParti=10;
+    int tailleParti = 10;
 
-    public CentreCalcule(){
+    public CentreCalcule() {
         scenes = new ArrayList<>();
         fabriquateurScenes = new ArrayList<>();
     }
 
     @Override
-    public void addCalculeur(FabriquateurScene fabriquateurScene) throws RemoteException {
+    public synchronized void addCalculeur(FabriquateurScene fabriquateurScene) throws RemoteException {
         fabriquateurScenes.add(fabriquateurScene);
-        System.out.println("Ajouter un calculeur: "+fabriquateurScene.toString());
+        System.out.println("Ajouter un calculeur: " + fabriquateurScene.toString());
     }
 
-    public void calculer(ServiceDisp disp, Scene scene) throws RemoteException, InterruptedException {
+    public synchronized void calculer(ServiceDisp disp, Scene scene) throws RemoteException, InterruptedException {
 
         /* Arreter les services de calcul*/
         Iterator<FabriquateurScene> fabriquateurSceneIterator = fabriquateurScenes.iterator();
-        while (fabriquateurSceneIterator.hasNext()){
+        List<Thread> threads = new ArrayList<>();
+        while (fabriquateurSceneIterator.hasNext()) {
             FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
-            try {
-                fabriquateurScene.stop();
-            }catch (ConnectException connectException){
-                fabriquateurSceneIterator.remove();
-                System.out.println("Enlever un calculeur: "+ fabriquateurScene);
-            }
+            Thread thread = new Thread(() -> {
+                try {
+                    fabriquateurScene.stop();
+                } catch (ConnectException connectException) {
+                    fabriquateurScenes.remove(fabriquateurScene);
+                    System.out.println("Enlever un calculeur: " + fabriquateurScene);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            });
+            thread.start();
+            threads.add(thread);
+        }
+        for (Thread thread : threads) {
+            thread.join();
         }
 
         /* Convertir les services de calcul*/
         scenes = new ArrayList<>();
         fabriquateurSceneIterator = fabriquateurScenes.iterator();
-        while (fabriquateurSceneIterator.hasNext()){
+        threads = new ArrayList<>();
+        while (fabriquateurSceneIterator.hasNext()) {
             FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
-            try {
-                scenes.add(fabriquateurScene.convertirService(scene));
-            }catch (ConnectException connectException){
-                fabriquateurSceneIterator.remove();
-                System.out.println("Enlever un calculeur: "+ fabriquateurScene);
-            }
+            Thread thread = new Thread(() -> {
+                try {
+                    scenes.add(fabriquateurScene.convertirService(scene));
+                } catch (ConnectException connectException) {
+                    fabriquateurScenes.remove(fabriquateurScene);
+                    System.out.println("Enlever un calculeur: " + fabriquateurScene);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            });
+            thread.start();
+            threads.add(thread);
+        }
+        for (Thread thread : threads) {
+            thread.join();
         }
 
-        if (scenes.size()==0){
+        if (scenes.size() == 0) {
             System.out.println("Pas de calculeur disponible");
             throw new ArithmeticException();
         }
 
         /*distribuer les taches de calcul*/
-        int nbLigne=scene.getHeight()/tailleParti;
-        int nbColone=scene.getWidth()/tailleParti;
-        for (int i=0;i<nbColone;i++){
-            for (int j=0;j<nbLigne;j++){
-                ServiceScene serviceScene = scenes.get((i+j) % scenes.size());
-                try {
-                    Image image = serviceScene.compute(i*tailleParti, j*tailleParti, tailleParti, tailleParti);
-                    disp.setImage(image, i*tailleParti, j*tailleParti);
-                    sleep(10);
-                }catch (ConnectException connectException) {
-                    scenes.remove(serviceScene);
-                    System.out.println("Enlever un service de calcul: " + scene);
-                    j--;
-                }
+        int nbLigne = scene.getHeight() / tailleParti;
+        int nbColone = scene.getWidth() / tailleParti;
+        List<int[]> tachesOmettre = new ArrayList<>();
+        threads=new ArrayList<>();
+        for (int i = 0; i < nbColone; i++) {
+            for (AtomicInteger j = new AtomicInteger(); j.get() < nbLigne; j.getAndIncrement()) {
+                ServiceScene serviceScene = scenes.get((i + j.get()) % scenes.size());
+                int finalI = i;
+                int finalJ = j.get();
+                Thread thread = new Thread(() -> {
+                    Image image;
+                    try {
+                        image = serviceScene.compute(finalI * tailleParti, finalJ * tailleParti, tailleParti, tailleParti);
+                        disp.setImage(image, finalI * tailleParti, finalJ * tailleParti);
+                    } catch (RemoteException e) {
+                        if (scenes.contains(serviceScene)) {
+                            scenes.remove(serviceScene);
+                            System.out.println("Enlever un service de calcul: " + serviceScene);
+                        }
+                        tachesOmettre.add(new int[]{finalI, finalJ});
+                    }
+                });
+                thread.start();
+                threads.add(thread);
             }
+        }
+        for (Thread thread : threads) {
+            thread.join();
+        }
+        while (tachesOmettre.size() > 0) {
+            int[] tache = tachesOmettre.get(0);
+            tachesOmettre.remove(0);
+            ServiceScene serviceScene = scenes.get((tache[0] + tache[1]) % scenes.size());
+            int finalI = tache[0];
+            int finalJ = tache[1];
+            Thread thread = new Thread(() -> {
+                Image image;
+                try {
+                    image = serviceScene.compute(finalI * tailleParti, finalJ * tailleParti, tailleParti, tailleParti);
+                    disp.setImage(image, finalI * tailleParti, finalJ * tailleParti);
+                } catch (RemoteException e) {
+                    if (scenes.contains(serviceScene)) {
+                        scenes.remove(serviceScene);
+                        System.out.println("Enlever un service de calcul: " + serviceScene);
+                    }
+                    tachesOmettre.add(new int[]{finalI, finalJ});
+                }
+            });
+            thread.start();
         }
 
         /*si la taille de l'image n'est pas un multiple de la taille des parties, completer l'image*/
         if(scene.getHeight()>nbLigne*tailleParti){
             for (int i=0;i<nbColone;i++){
-                try {
-                    Image image = scenes.get(i % scenes.size()).compute(i*tailleParti, nbLigne*tailleParti, tailleParti, scene.getHeight()-nbLigne*tailleParti);
-                    disp.setImage(image, i*tailleParti, nbLigne*tailleParti);
-                }catch (ConnectException connectException) {
-                    scenes.remove(scenes.get(i % scenes.size()));
-                    System.out.println("Enlever un service de calcul: " + scene);
-                    i--;
-                }
+                ServiceScene sceneI = scenes.get(i % scenes.size());
+                int finalI = i;
+                List<int[]> finalTachesOmettre = tachesOmettre;
+                Thread thread=new Thread(()->{
+                    try {
+                        Image image = sceneI.compute(finalI *tailleParti, nbLigne*tailleParti, tailleParti, scene.getHeight()-nbLigne*tailleParti);
+                        disp.setImage(image, finalI *tailleParti, nbLigne*tailleParti);
+                    }catch (RemoteException e) {
+                        if (scenes.contains(sceneI)) {
+                            scenes.remove(sceneI);
+                            System.out.println("Enlever un service de calcul: " + sceneI);
+                        }
+                        finalTachesOmettre.add(new int[]{finalI, nbLigne});
+                    }
+                });
+                thread.start();
             }
         }
-        if(scene.getWidth()>nbColone*tailleParti){
-            for (int j=0;j<nbLigne;j++){
+        while (tachesOmettre.size()>0){
+            int[] tache = tachesOmettre.get(0);
+            tachesOmettre.remove(0);
+            ServiceScene sceneI = scenes.get(tache[0] % scenes.size());
+            List<int[]> finalTachesOmettre = tachesOmettre;
+            Thread thread=new Thread(()->{
                 try {
-                    Image image = scenes.get(j % fabriquateurScenes.size()).compute(nbColone*tailleParti, j*tailleParti, scene.getWidth()-nbColone*tailleParti, tailleParti);
-                    disp.setImage(image, nbColone*tailleParti, j*tailleParti);
-                }catch (ConnectException connectException) {
-                    scenes.remove(scenes.get(j % scenes.size()));
-                    System.out.println("Enlever un service de calcul: " + scene);
-                    j--;
+                    Image image = sceneI.compute(tache[0] *tailleParti, tache[1] *tailleParti, tailleParti, scene.getHeight()-nbLigne*tailleParti);
+                    disp.setImage(image, tache[0] *tailleParti, tache[1] *tailleParti);
+                }catch (RemoteException e) {
+                    if (scenes.contains(sceneI)) {
+                        scenes.remove(sceneI);
+                        System.out.println("Enlever un service de calcul: " + sceneI);
+                    }
+                    finalTachesOmettre.add(new int[]{tache[0], tache[1]});
                 }
+            });
+            thread.start();
+        }
+        if(scene.getWidth()>nbColone*tailleParti){
+            for (AtomicInteger j = new AtomicInteger(); j.get() <nbLigne; j.getAndIncrement()){
+                int finalJ = j.get();
+                ServiceScene sceneI = scenes.get(finalJ % scenes.size());
+                Thread thread=new Thread(()->{
+                    try {
+                        Image image = sceneI.compute(nbColone*tailleParti, finalJ *tailleParti, scene.getWidth()-nbColone*tailleParti, tailleParti);
+                        disp.setImage(image, nbColone*tailleParti, finalJ *tailleParti);
+                    }catch (RemoteException e) {
+                        if (scenes.contains(sceneI)) {
+                            scenes.remove(sceneI);
+                            System.out.println("Enlever un service de calcul: " + sceneI);
+                        }
+                        tachesOmettre.add(new int[]{nbColone, finalJ});
+                    }
+                });
+                thread.start();
             }
+        }
+        while (tachesOmettre.size()>0){
+            int[] tache = tachesOmettre.get(0);
+            tachesOmettre.remove(0);
+            ServiceScene sceneI = scenes.get(tache[0] % scenes.size());
+            List<int[]> finalTachesOmettre = tachesOmettre;
+            Thread thread=new Thread(()->{
+                try {
+                    Image image = sceneI.compute(tache[0] *tailleParti, tache[1] *tailleParti, scene.getWidth()-nbColone*tailleParti, tailleParti);
+                    disp.setImage(image, tache[0] *tailleParti, tache[1] *tailleParti);
+                }catch (RemoteException e) {
+                    if (scenes.contains(sceneI)) {
+                        scenes.remove(sceneI);
+                        System.out.println("Enlever un service de calcul: " + sceneI);
+                    }
+                    finalTachesOmettre.add(new int[]{tache[0], tache[1]});
+                }
+            });
+            thread.start();
         }
         if(scene.getHeight()>nbLigne*tailleParti && scene.getWidth()>nbColone*tailleParti){
             boolean complete = false;
@@ -109,7 +216,7 @@ public class CentreCalcule implements ServiceCentreCalcule{
                     complete = true;
                 } catch (ConnectException connectException) {
                     scenes.remove(scenes.get(0));
-                    System.out.println("Enlever un service de calcul: " + scene);
+                    System.out.println("Enlever un service de calcul: " + scenes.get(0));
                 }
             }
         }
@@ -144,3 +251,4 @@ public class CentreCalcule implements ServiceCentreCalcule{
         }
     }*/
 }
+
