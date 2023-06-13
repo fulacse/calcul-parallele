@@ -34,7 +34,7 @@ public class CentreCalcule implements ServiceCentreCalcule {
             FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
             Thread thread = new Thread(() -> {
                 try {
-                    fabriquateurScene.stop();
+                    if (fabriquateurScene!=null)fabriquateurScene.stop();
                 } catch (ConnectException connectException) {
                     fabriquateurScenes.remove(fabriquateurScene);
                     System.out.println("Enlever un calculeur: " + fabriquateurScene);
@@ -57,7 +57,7 @@ public class CentreCalcule implements ServiceCentreCalcule {
             FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
             Thread thread = new Thread(() -> {
                 try {
-                    scenes.add(fabriquateurScene.convertirService(scene));
+                    if (fabriquateurScene != null)scenes.add(fabriquateurScene.convertirService(scene));
                 } catch (ConnectException connectException) {
                     fabriquateurScenes.remove(fabriquateurScene);
                     System.out.println("Enlever un calculeur: " + fabriquateurScene);
