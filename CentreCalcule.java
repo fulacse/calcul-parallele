@@ -56,31 +56,12 @@ public class CentreCalcule implements ServiceCentreCalcule {
     public synchronized void calculer(ServiceDisp disp, Scene scene) throws RemoteException, InterruptedException {
 
         /* Arreter les services de calcul avants */
-        Iterator<FabriquateurScene> fabriquateurSceneIterator = fabriquateurScenes.iterator();// Iterer les services de calcul avants
-        List<Thread> threads = new ArrayList<>();
-        while (fabriquateurSceneIterator.hasNext()) {
-            FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
-            Thread thread = new Thread(() -> {// travailler en parallèle
-                try {
-                    if (fabriquateurScene!=null)fabriquateurScene.stop();
-                } catch (ConnectException connectException) {
-                    fabriquateurScenes.remove(fabriquateurScene);
-                    System.out.println("Enlever un calculeur: " + fabriquateurScene);
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
-            });
-            thread.start();
-            threads.add(thread);
-        }
-        for (Thread thread : threads) {// attendre tous les threads finissent
-            thread.join();
-        }
+        this.stop();
 
         /* Convertir les services de calcul*/
         scenes = new ArrayList<>();
-        fabriquateurSceneIterator = fabriquateurScenes.iterator();
-        threads = new ArrayList<>();
+        Iterator<FabriquateurScene> fabriquateurSceneIterator = fabriquateurScenes.iterator();
+        List<Thread> threads = new ArrayList<>();
         while (fabriquateurSceneIterator.hasNext()) {
             FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
             Thread thread = new Thread(() -> {
@@ -211,6 +192,33 @@ public class CentreCalcule implements ServiceCentreCalcule {
         }
     }
 
+    private void stop(){
+        Iterator<FabriquateurScene> fabriquateurSceneIterator = fabriquateurScenes.iterator();// Iterer les services de calcul avants
+        List<Thread> threads = new ArrayList<>();
+        while (fabriquateurSceneIterator.hasNext()) {
+            FabriquateurScene fabriquateurScene = fabriquateurSceneIterator.next();
+            Thread thread = new Thread(() -> {// travailler en parallèle
+                try {
+                    if (fabriquateurScene!=null)fabriquateurScene.stop();
+                } catch (ConnectException connectException) {
+                    fabriquateurScenes.remove(fabriquateurScene);
+                    System.out.println("Enlever un calculeur: " + fabriquateurScene);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            });
+            thread.start();
+            threads.add(thread);
+        }
+        for (Thread thread : threads) {// attendre tous les threads finissent
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     private Thread toThread(ServiceScene serviceScene,int finalI,int finalJ,int tailleX,int tailleY,ServiceDisp disp,List<int[]> tachesOmettre){
         return new Thread(() -> {
             Image image = null;
@@ -231,7 +239,8 @@ public class CentreCalcule implements ServiceCentreCalcule {
                 try {
                     disp.setImage(image, finalI * tailleParti, finalJ * tailleParti);
                 } catch (RemoteException e) {
-                    throw new RuntimeException(e);
+                    stop();
+                    scenes.clear();
                 }
             }
         });
