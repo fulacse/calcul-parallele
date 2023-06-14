@@ -6,6 +6,8 @@ import java.rmi.ServerException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
@@ -37,7 +39,13 @@ public class MainDemandeur {
         Scene scene=new Scene("simple.txt",largeur,hauteur);
         Disp disp=new Disp("Raytracer", largeur, hauteur);
         try {
+            Instant debut = Instant.now();
             centreCalcule.calculer((ServiceDisp) UnicastRemoteObject.exportObject(disp,0), scene);
+            Instant fin = Instant.now();
+
+            long duree = Duration.between(debut,fin).toMillis();
+            System.out.println(duree);
+
         }catch (ArithmeticException arithmeticException){
             UnicastRemoteObject.unexportObject(disp,true);
             disp.close();
