@@ -20,7 +20,7 @@ public class MainCalculeur {
         ServiceCentreCalcule centreCalcule=(ServiceCentreCalcule) reg.lookup("CentreCalcule");
 
         /*ajouter un fabriquateur de scene par defaut*/
-        centreCalcule.addCalculeur((FabriquateurScene) UnicastRemoteObject.exportObject(new ConvertisaurService(),0));
+        centreCalcule.addCalculeur((FabricateurScene) UnicastRemoteObject.exportObject(new ConvertisseurService(),0));
 
     }
 }
