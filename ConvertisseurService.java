@@ -3,9 +3,8 @@ import raytracer.ServiceScene;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.concurrent.Semaphore;
 
-public class ConvertisaurService implements FabriquateurScene{
+public class ConvertisseurService implements FabricateurScene {
 
     private Scene scene;
 
